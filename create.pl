@@ -100,124 +100,120 @@ sub main {
 		}
 	}
 
-	if(yesno("Do you want to define variables?")) {
-		my @variables = ();
-		while ((my $param = inputbox("Enter a variable name to be used as cli parameters or nothing for ending parameter input.\n".
-					"Example:\nvarname\nvarname=defaultvalue\ninteger=(INT)defaultvalue\n".
-					"float=(FLOAT)\nstring=(STRING)defaultvalue\nfile=(FILEEXISTS)defaultvalue\nfolder=(DIREXISTS)defaultvalue")) ne "") {
-			if($param) {
-				push @variables, $param;
-			}
-		}
-
-		if(@variables) {
-			$script .= "function help () {\n";
-			$script .= qq#\techo "Possible options:"\n#;
-
-			foreach my $var (@variables) {
-				my $name = $var;
-				$name =~ s#=.*##g;
-				my $helptext = "--$name";
-				if($var =~ m#(INT|FLOAT|STRING)#) {
-					my $type = $1;
-					$helptext .= "=$type";
-				} elsif ($var =~ m#(DIREXISTS|FILEEXISTS)#) {
-					my $type = $1;
-					$helptext .= "=$type";
-				}
-
-				if($var =~ m#=\((INT|FLOAT|STRING|DIREXISTS|FILEEXISTS)\)(.*)#) {
-					my $default_value = $2;
-					if($default_value !~ m#^\s*$#) {
-						while(length($helptext) < 50) {
-							$helptext .= ' ';
-						}
-						$helptext .= " default value: $default_value";
-					}
-				}
-				$script .= qq#\techo "\t$helptext"\n#;
-			}
-
-			my $helptext = "--help";
-			while(length($helptext) < 50) {
-				$helptext .= ' ';
-			}
-			$helptext .= " this help";
-			$script .= qq#\techo "\t$helptext"\n#;
-
-
-			$helptext = "--debug";
-			while(length($helptext) < 50) {
-				$helptext .= ' ';
-			}
-			$helptext .= " Enables debug mode (set -x)";
-			$script .= qq#\techo "\t$helptext"\n#;
-			$script .= qq#\texit \$1\n#;
-
-			$script .= "}\n";
-
-			foreach my $var (@variables) {
-				my $var_exportable = $var;
-				$var_exportable =~ s#\((INT|FLOAT|STRING|!empty)\)##g;
-				$script .= "export $var_exportable\n";
-			}
-
-			$script .= "for i in \$@; do\n";
-			$script .= "\tcase \$i in\n";
-			foreach my $var (@variables) {
-				my $name = $var;
-				$name =~ s#=.*##g;
-				$script .= "\t\t--$name=*)\n";
-				$script .= "\t\t\t$name=\"\${i#*=}\"\n";
-				if ($var =~ m#\((INT|FLOAT|STRING|FILEEXISTS|DIREXISTS)\)#) {
-					my $type = $1;
-					if($type ne "STRING") {
-						if($type eq "FILEEXISTS") {
-							$script .= "\t\t\tif [[ ! -f \$$name ]]; then\n";
-							$script .= "\t\t\t\tred_text \"error: file \$$name does not exist\" >&2\n";
-							$script .= "\t\t\t\thelp 1\n";
-							$script .= "\t\t\tfi\n";
-						} elsif($type eq "DIREXISTS") {
-							$script .= "\t\t\tif [[ ! -d \$$name ]]; then\n";
-							$script .= "\t\t\t\tred_text \"error: directory \$$name does not exist\" >&2\n";
-							$script .= "\t\t\t\thelp 1\n";
-							$script .= "\t\t\tfi\n";
-						} else {
-							if($type eq "INT") {
-								$script .= "\t\t\tre='^[+-]?[0-9]+\$'\n"
-							} elsif ($type eq "FLOAT") {
-								$script .= "\t\t\tre='^[+-]?[0-9]+([.][0-9]+)?\$'\n";
-							}
-							$script .= "\t\t\tif ! [[ \$$name =~ \$re ]] ; then\n";
-							$script .= "\t\t\t\tred_text \"error: Not a $type: \$i\" >&2\n";
-							$script .= "\t\t\t\thelp 1\n";
-							$script .= "\t\t\tfi\n";
-						}
-					}
-				}
-
-				$script .= "\t\t\tshift\n";
-				$script .= "\t\t\t;;\n";
-			}
-
-
-			$script .= "\t\t-h|--help)\n";
-			$script .= "\t\t\thelp 0\n";
-			$script .= "\t\t\t;;\n";
-
-			$script .= "\t\t--debug)\n";
-			$script .= "\t\t\tset -x\n";
-			$script .= "\t\t\t;;\n";
-
-			$script .= "\t\t*)\n";
-			$script .= "\t\t\techo \"Unknown parameter \$i\" >&2\n";
-			$script .= "\t\t\thelp 1\n";
-			$script .= "\t\t\t;;\n";
-
-			$script .= "\tesac\n";
-			$script .= "done\n";
+	my @variables = ();
+	while ((my $param = inputbox("Enter a variable name to be used as cli parameters or nothing for ending parameter input.\n".
+				"Example:\nvarname\nvarname=defaultvalue\ninteger=(INT)defaultvalue\n".
+				"float=(FLOAT)\nstring=(STRING)defaultvalue\nfile=(FILEEXISTS)defaultvalue\nfolder=(DIREXISTS)defaultvalue")) ne "") {
+		if($param) {
+			push @variables, $param;
 		}
 	}
+
+	$script .= "function help () {\n";
+	$script .= qq#\techo "Possible options:"\n#;
+
+	foreach my $var (@variables) {
+		my $name = $var;
+		$name =~ s#=.*##g;
+		my $helptext = "--$name";
+		if($var =~ m#(INT|FLOAT|STRING)#) {
+			my $type = $1;
+			$helptext .= "=$type";
+		} elsif ($var =~ m#(DIREXISTS|FILEEXISTS)#) {
+			my $type = $1;
+			$helptext .= "=$type";
+		}
+
+		if($var =~ m#=\((INT|FLOAT|STRING|DIREXISTS|FILEEXISTS)\)(.*)#) {
+			my $default_value = $2;
+			if($default_value !~ m#^\s*$#) {
+				while(length($helptext) < 50) {
+					$helptext .= ' ';
+				}
+				$helptext .= " default value: $default_value";
+			}
+		}
+		$script .= qq#\techo "\t$helptext"\n#;
+	}
+
+	my $helptext = "--help";
+	while(length($helptext) < 50) {
+		$helptext .= ' ';
+	}
+	$helptext .= " this help";
+	$script .= qq#\techo "\t$helptext"\n#;
+
+
+	$helptext = "--debug";
+	while(length($helptext) < 50) {
+		$helptext .= ' ';
+	}
+	$helptext .= " Enables debug mode (set -x)";
+	$script .= qq#\techo "\t$helptext"\n#;
+	$script .= qq#\texit \$1\n#;
+
+	$script .= "}\n";
+
+	foreach my $var (@variables) {
+		my $var_exportable = $var;
+		$var_exportable =~ s#\((INT|FLOAT|STRING|!empty)\)##g;
+		$script .= "export $var_exportable\n";
+	}
+
+	$script .= "for i in \$@; do\n";
+	$script .= "\tcase \$i in\n";
+	foreach my $var (@variables) {
+		my $name = $var;
+		$name =~ s#=.*##g;
+		$script .= "\t\t--$name=*)\n";
+		$script .= "\t\t\t$name=\"\${i#*=}\"\n";
+		if ($var =~ m#\((INT|FLOAT|STRING|FILEEXISTS|DIREXISTS)\)#) {
+			my $type = $1;
+			if($type ne "STRING") {
+				if($type eq "FILEEXISTS") {
+					$script .= "\t\t\tif [[ ! -f \$$name ]]; then\n";
+					$script .= "\t\t\t\tred_text \"error: file \$$name does not exist\" >&2\n";
+					$script .= "\t\t\t\thelp 1\n";
+					$script .= "\t\t\tfi\n";
+				} elsif($type eq "DIREXISTS") {
+					$script .= "\t\t\tif [[ ! -d \$$name ]]; then\n";
+					$script .= "\t\t\t\tred_text \"error: directory \$$name does not exist\" >&2\n";
+					$script .= "\t\t\t\thelp 1\n";
+					$script .= "\t\t\tfi\n";
+				} else {
+					if($type eq "INT") {
+						$script .= "\t\t\tre='^[+-]?[0-9]+\$'\n"
+					} elsif ($type eq "FLOAT") {
+						$script .= "\t\t\tre='^[+-]?[0-9]+([.][0-9]+)?\$'\n";
+					}
+					$script .= "\t\t\tif ! [[ \$$name =~ \$re ]] ; then\n";
+					$script .= "\t\t\t\tred_text \"error: Not a $type: \$i\" >&2\n";
+					$script .= "\t\t\t\thelp 1\n";
+					$script .= "\t\t\tfi\n";
+				}
+			}
+		}
+
+		$script .= "\t\t\tshift\n";
+		$script .= "\t\t\t;;\n";
+	}
+
+
+	$script .= "\t\t-h|--help)\n";
+	$script .= "\t\t\thelp 0\n";
+	$script .= "\t\t\t;;\n";
+
+	$script .= "\t\t--debug)\n";
+	$script .= "\t\t\tset -x\n";
+	$script .= "\t\t\t;;\n";
+
+	$script .= "\t\t*)\n";
+	$script .= "\t\t\techo \"Unknown parameter \$i\" >&2\n";
+	$script .= "\t\t\thelp 1\n";
+	$script .= "\t\t\t;;\n";
+
+	$script .= "\tesac\n";
+	$script .= "done\n";
 
 	open my $fh, '>', $filename;
 	print $fh $script;
