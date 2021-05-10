@@ -36,12 +36,18 @@ sub inputbox {
 sub menu {
 	my $text = shift;
 	my $selection = $d->menu(text => 'Select one:', list => \@_);
+	if($d->rv()) {
+		exit(0);
+	}
 	return $selection;
 }
 
 sub checklist {
 	my $text = shift;
 	my @selection1 = $d->checklist( text => $text, list => \@_);
+	if($d->rv()) {
+		exit(0);
+	}
 	return @selection1;
 }
 
@@ -51,6 +57,14 @@ sub main {
 	my $filename = ''; 
 
 	my $script = "#!/bin/bash\n";
+
+	$script .= "function echoerr() {";
+        $script .= "\t".q#echo "$@" 1>&2#."\n";
+	$script .= "}\n\n";
+
+	$script .= "function red_text {\n";
+	$script .= "\t".q#echoerr -e "\e[31m$1\e[0m"#."\n";
+	$script .= "}\n\n";
 
 	while (!$filename) {
 		$filename = inputbox("Filename without .sh");
@@ -67,23 +81,12 @@ sub main {
 		"set -o pipefail", ["fail if a command in a pipe fails", 1],
 		"set -u", ["exit script if a variable is undefined", 0],
 		"set -x", ["show lines before executing them", 0],
-		"calltrace", ["Show call trace when the bash script dies", 1],
-		"define lmod stuff", ["Defines ml and module for module load", 0]
-
+		"calltrace", ["Show call trace when the bash script dies", 1]
 	);
+
 	foreach my $option (@options) {
 		if($option =~ m#^set -([exu]|o pipefail)$#) {
 			$script .= "$option\n";
-		} elsif ($option eq "define lmod stuff") {
-			$script .= "LMOD_DIR=/usr/share/lmod/lmod/libexec/\n";
-			$script .= "LMOD_CMD=/usr/share/lmod/lmod/libexec/lmod\n";
-			$script .= "module () {\n";
-			$script .= "\teval `\$LMOD_CMD sh \"\$@\"`\n";
-			$script .= "\n}\n";
-			$script .= "ml () {\n";
-			$script .= "\teval \$(\$LMOD_DIR/ml_cmd \"\$@\")\n";
-			$script .= "}\n";
-
 		} elsif ($option eq "calltrace") {
 			$script .= "\n";
 			$script .= "function calltracer () {\n";
@@ -171,12 +174,12 @@ sub main {
 					if($type ne "STRING") {
 						if($type eq "FILEEXISTS") {
 							$script .= "\t\t\tif [[ ! -f \$$name ]]; then\n";
-							$script .= "\t\t\t\techo \"error: file \$$name does not exist\" >&2\n";
+							$script .= "\t\t\t\tred_text \"error: file \$$name does not exist\" >&2\n";
 							$script .= "\t\t\t\thelp 1\n";
 							$script .= "\t\t\tfi\n";
 						} elsif($type eq "DIREXISTS") {
 							$script .= "\t\t\tif [[ ! -d \$$name ]]; then\n";
-							$script .= "\t\t\t\techo \"error: directory \$$name does not exist\" >&2\n";
+							$script .= "\t\t\t\tred_text \"error: directory \$$name does not exist\" >&2\n";
 							$script .= "\t\t\t\thelp 1\n";
 							$script .= "\t\t\tfi\n";
 						} else {
@@ -186,7 +189,7 @@ sub main {
 								$script .= "\t\t\tre='^[+-]?[0-9]+([.][0-9]+)?\$'\n";
 							}
 							$script .= "\t\t\tif ! [[ \$$name =~ \$re ]] ; then\n";
-							$script .= "\t\t\t\techo \"error: Not a $type: \$i\" >&2\n";
+							$script .= "\t\t\t\tred_text \"error: Not a $type: \$i\" >&2\n";
 							$script .= "\t\t\t\thelp 1\n";
 							$script .= "\t\t\tfi\n";
 						}
