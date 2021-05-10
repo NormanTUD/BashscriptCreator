@@ -103,8 +103,8 @@ sub main {
 	if(yesno("Do you want to define variables?")) {
 		my @variables = ();
 		while ((my $param = inputbox("Enter a variable name to be used as cli parameters or nothing for ending parameter input.\n".
-					"Example:\nvarname\nvarname=defaultvalue\nvarname=(INT)defaultvalue\n".
-					"varname=(FLOAT)\nvarname=(STRING)defaultvalue\nvarname=(FILEEXISTS)defaultvalue\nvarname=(DIREXISTS)defaultvalue")) ne "") {
+					"Example:\nvarname\nvarname=defaultvalue\ninteger=(INT)defaultvalue\n".
+					"float=(FLOAT)\nstring=(STRING)defaultvalue\nfile=(FILEEXISTS)defaultvalue\nfolder=(DIREXISTS)defaultvalue")) ne "") {
 			if($param) {
 				push @variables, $param;
 			}
