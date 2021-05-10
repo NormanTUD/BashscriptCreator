@@ -68,9 +68,9 @@ sub main {
 
 	while (!$filename) {
 		$filename = inputbox("Filename without .sh");
-		$filename =~ s#\.sh{1,}$#.sh#g;
+		$filename =~ s#\.sh{1,}$##g;
 		if(-e "$filename.sh") {
-			msgbox("The file `$filename already exists. Choose another one please.");
+			msgbox("The file `$filename.sh` already exists. Choose another one please.");
 			$filename = ''; 
 		}
 	}
@@ -102,13 +102,17 @@ sub main {
 
 	my @variables = ();
 	while ((my $param = inputbox("Enter a variable name to be used as cli parameters or nothing for ending parameter input. Default value is optional.\n".
+				"Prepend '!' to not allow empty values.\n".
 				"Examples:\nvarname\nvarname=defaultvalue\ninteger=(INT)defaultvalue\n".
 				"float=(FLOAT)\nfile=(FILEEXISTS)defaultvalue\n".
-				"file=(FILENOTEXISTS)defaultvalue\nfolder=(DIREXISTS)defaultvalue\nfolder=(DIRNOTEXISTS)defaultvalue")) ne "") {
+				"file=(FILENOTEXISTS)defaultvalue\nfolder=(DIREXISTS)defaultvalue\nfolder=(DIRNOTEXISTS)defaultvalue\n".
+				"!file=(FILEEXISTS)\n"
+			)) ne "") {
 		if($param) {
 			push @variables, $param;
 		}
 	}
+	my @variables_original = @variables;
 
 	$script .= "function help () {\n";
 	$script .= qq#\techo "Possible options:"\n#;
@@ -116,6 +120,12 @@ sub main {
 	foreach my $var (@variables) {
 		my $name = $var;
 		$name =~ s#=.*##g;
+
+		if($var =~ m#^!#) {
+			$var =~ s#^!##g;
+			$name = $var;
+		}
+
 		my $helptext = "--$name";
 		if($var =~ m#(INT|FLOAT|STRING)#) {
 			my $type = $1;
@@ -157,7 +167,8 @@ sub main {
 
 	foreach my $var (@variables) {
 		my $var_exportable = $var;
-		$var_exportable =~ s#\((INT|FLOAT|STRING|!empty)\)##g;
+		$var_exportable =~ s#!##;
+		$var_exportable =~ s#\((INT|FLOAT|STRING|DIREXISTS|DIRNOTEXISTS|FILEEXISTS|FILENOTEXISTS)\)##g;
 		$script .= "export $var_exportable\n";
 	}
 
@@ -165,6 +176,11 @@ sub main {
 	$script .= "\tcase \$i in\n";
 	foreach my $var (@variables) {
 		my $name = $var;
+		if($var =~ m#^!#) {
+			$var =~ s#^!##g;
+			$name = $var;
+		}
+
 		$name =~ s#=.*##g;
 		$script .= "\t\t--$name=*)\n";
 		$script .= "\t\t\t$name=\"\${i#*=}\"\n";
@@ -225,6 +241,14 @@ sub main {
 
 	$script .= "\tesac\n";
 	$script .= "done\n";
+
+	foreach my $var (@variables_original) {
+		$var =~ s#=.*##g;
+		if($var =~ m#^!#) {
+			$var =~ s#^!##g;
+			$script .= qq#if [[ -z "\$$var" ]]; then red_text "Parameter --$var cannot be empty"; help 1; fi\n#;
+		}
+	}
 
 	open my $fh, '>', $filename;
 	print $fh $script;
