@@ -101,9 +101,10 @@ sub main {
 	}
 
 	my @variables = ();
-	while ((my $param = inputbox("Enter a variable name to be used as cli parameters or nothing for ending parameter input.\n".
-				"Example:\nvarname\nvarname=defaultvalue\ninteger=(INT)defaultvalue\n".
-				"float=(FLOAT)\nstring=(STRING)defaultvalue\nfile=(FILEEXISTS)defaultvalue\nfolder=(DIREXISTS)defaultvalue")) ne "") {
+	while ((my $param = inputbox("Enter a variable name to be used as cli parameters or nothing for ending parameter input. Default value is optional.\n".
+				"Examples:\nvarname\nvarname=defaultvalue\ninteger=(INT)defaultvalue\n".
+				"float=(FLOAT)\nfile=(FILEEXISTS)defaultvalue\n".
+				"file=(FILENOTEXISTS)defaultvalue\nfolder=(DIREXISTS)defaultvalue\nfolder=(DIRNOTEXISTS)defaultvalue")) ne "") {
 		if($param) {
 			push @variables, $param;
 		}
@@ -119,12 +120,12 @@ sub main {
 		if($var =~ m#(INT|FLOAT|STRING)#) {
 			my $type = $1;
 			$helptext .= "=$type";
-		} elsif ($var =~ m#(DIREXISTS|FILEEXISTS)#) {
+		} elsif ($var =~ m#(DIREXISTS|DIRNOTEXISTS|FILEEXISTS|FILENOTEXISTS)#) {
 			my $type = $1;
 			$helptext .= "=$type";
 		}
 
-		if($var =~ m#=\((INT|FLOAT|STRING|DIREXISTS|FILEEXISTS)\)(.*)#) {
+		if($var =~ m#=\((INT|FLOAT|STRING|DIREXISTS|DIRNOTEXISTS|FILEEXISTS|FILENOTEXISTS)\)(.*)#) {
 			my $default_value = $2;
 			if($default_value !~ m#^\s*$#) {
 				while(length($helptext) < 50) {
@@ -167,7 +168,7 @@ sub main {
 		$name =~ s#=.*##g;
 		$script .= "\t\t--$name=*)\n";
 		$script .= "\t\t\t$name=\"\${i#*=}\"\n";
-		if ($var =~ m#\((INT|FLOAT|STRING|FILEEXISTS|DIREXISTS)\)#) {
+		if ($var =~ m#\((INT|FLOAT|STRING|FILEEXISTS|DIREXISTS|FILENOTEXISTS|DIRNOTEXISTS)\)#) {
 			my $type = $1;
 			if($type ne "STRING") {
 				if($type eq "FILEEXISTS") {
@@ -175,9 +176,19 @@ sub main {
 					$script .= "\t\t\t\tred_text \"error: file \$$name does not exist\" >&2\n";
 					$script .= "\t\t\t\thelp 1\n";
 					$script .= "\t\t\tfi\n";
+				} elsif($type eq "FILENOTEXISTS") {
+					$script .= "\t\t\tif [[ -f \$$name ]]; then\n";
+					$script .= "\t\t\t\tred_text \"error: file \$$name does already exist\" >&2\n";
+					$script .= "\t\t\t\thelp 1\n";
+					$script .= "\t\t\tfi\n";
 				} elsif($type eq "DIREXISTS") {
 					$script .= "\t\t\tif [[ ! -d \$$name ]]; then\n";
 					$script .= "\t\t\t\tred_text \"error: directory \$$name does not exist\" >&2\n";
+					$script .= "\t\t\t\thelp 1\n";
+					$script .= "\t\t\tfi\n";
+				} elsif($type eq "DIRNOTEXISTS") {
+					$script .= "\t\t\tif [[ -d \$$name ]]; then\n";
+					$script .= "\t\t\t\tred_text \"error: directory \$$name does already exist\" >&2\n";
 					$script .= "\t\t\t\thelp 1\n";
 					$script .= "\t\t\tfi\n";
 				} else {
@@ -208,7 +219,7 @@ sub main {
 	$script .= "\t\t\t;;\n";
 
 	$script .= "\t\t*)\n";
-	$script .= "\t\t\techo \"Unknown parameter \$i\" >&2\n";
+	$script .= "\t\t\tred_text \"Unknown parameter \$i\" >&2\n";
 	$script .= "\t\t\thelp 1\n";
 	$script .= "\t\t\t;;\n";
 
