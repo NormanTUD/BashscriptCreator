@@ -58,7 +58,7 @@ sub main {
 
 	my $script = "#!/bin/bash\n";
 
-	$script .= "function echoerr() {";
+	$script .= "function echoerr() {\n";
         $script .= "\t".q#echo "$@" 1>&2#."\n";
 	$script .= "}\n\n";
 
