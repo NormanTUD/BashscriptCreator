@@ -51,14 +51,15 @@ sub checklist {
 	return @selection1;
 }
 
-main();
+main(@ARGV);
 
 sub main {
-	my $filename = ''; 
+	my $filename = shift; 
+	my @variables = @_;
 
 	my $script = "#!/bin/bash\n";
 
-	$script .= "function echoerr() {";
+	$script .= "function echoerr() {\n";
         $script .= "\t".q#echo "$@" 1>&2#."\n";
 	$script .= "}\n\n";
 
@@ -100,7 +101,6 @@ sub main {
 		}
 	}
 
-	my @variables = ();
 	while ((my $param = inputbox("Enter a variable name to be used as cli parameters or nothing for ending parameter input. Default value is optional.\n".
 				"Prepend '!' to not allow empty values.\n".
 				"Examples:\nvarname\nvarname=defaultvalue\ninteger=(INT)defaultvalue\n".
@@ -112,38 +112,55 @@ sub main {
 			push @variables, $param;
 		}
 	}
+
 	my @variables_original = @variables;
 
 	$script .= "function help () {\n";
 	$script .= qq#\techo "Possible options:"\n#;
 
-	foreach my $var (@variables) {
+	foreach my $var (@variables_original) {
 		my $name = $var;
 		$name =~ s#=.*##g;
 
+		my $not_empty = 0;
 		if($var =~ m#^!#) {
 			$var =~ s#^!##g;
 			$name = $var;
+			$not_empty = 1;
 		}
 
 		my $helptext = "--$name";
-		if($var =~ m#(INT|FLOAT|STRING)#) {
-			my $type = $1;
-			$helptext .= "=$type";
-		} elsif ($var =~ m#(DIREXISTS|DIRNOTEXISTS|FILEEXISTS|FILENOTEXISTS)#) {
-			my $type = $1;
-			$helptext .= "=$type";
-		}
 
-		if($var =~ m#=\((INT|FLOAT|STRING|DIREXISTS|DIRNOTEXISTS|FILEEXISTS|FILENOTEXISTS)\)(.*)#) {
+		my $already_added_helptext = 0;
+		if($var =~ m#=\((INT|FLOAT|STRING|DIREXISTS|DIRNOTEXISTS|FILEEXISTS|FILENOTEXISTS)\)?(.*)#) {
 			my $default_value = $2;
 			if($default_value !~ m#^\s*$#) {
 				while(length($helptext) < 50) {
 					$helptext .= ' ';
 				}
 				$helptext .= " default value: $default_value";
+				$already_added_helptext = 1;
 			}
 		}
+
+		if($not_empty) {
+			if($already_added_helptext) {
+				$helptext .= ", cannot be empty";
+			} else {
+				if($var =~ m#=\((INT|FLOAT|STRING|DIREXISTS|DIRNOTEXISTS|FILEEXISTS|FILENOTEXISTS)\)(.*)#) {
+					my $default_value = $2;
+					if($default_value !~ m#^\s*$#) {
+						while(length($helptext) < 50) {
+							$helptext .= ' ';
+						}
+						$helptext .= " cannot be empty";
+						$already_added_helptext = 1;
+					}
+				}
+
+			}
+		}
+
 		$script .= qq#\techo "\t$helptext"\n#;
 	}
 
